@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>Optical Flow on Info of LHF</title>
+    <link>http://localhost:1313/en/tags/optical-flow/</link>
+    <description>Recent content in Optical Flow on Info of LHF</description>
+    <generator>Hugo -- gohugo.io</generator>
+    <language>en-us</language>
+    <lastBuildDate>Mon, 04 Apr 2022 05:00:00 +0000</lastBuildDate>
+    <atom:link href="http://localhost:1313/en/tags/optical-flow/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>How11 to build an Application with modern Technology</title>
+      <link>http://localhost:1313/en/blog/21312/</link>
+      <pubDate>Mon, 04 Apr 2022 05:00:00 +0000</pubDate>
+      <guid>http://localhost:1313/en/blog/21312/</guid>
+      <description>Nemo vel ad consectetur namut rutrum ex, venenatis sollicitudin urna.</description>
+    </item>
+  </channel>
+</rss>
