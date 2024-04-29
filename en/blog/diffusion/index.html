@@ -20,5 +20,79 @@ inline-flex items-center">Pages<svg class="h-4 w-4 fill-current" viewBox="0 0 20
 <a href=/en/categories/%e6%b7%b1%e5%ba%a6%e5%ad%a6%e4%b9%a0/>深度学习
 ,
 </a><a href=/en/categories/%e5%ad%a6%e4%b9%a0%e7%ac%94%e8%ae%b0/>学习笔记</a></li><li class="mr-4 inline-block"><i class="fa-regular fa-clock mr-2"></i>
-December 14, 2023</li></ul><div class="content mb-10"><h2 id=扩散模型>扩散模型</h2><script type=text/javascript async src="https://cdn.bootcss.com/mathjax/2.7.3/MathJax.js?config=TeX-AMS-MML_HTMLorMML">MathJax.Hub.Config({tex2jax:{inlineMath:[["$","$"],["\\(","\\)"]],displayMath:[["$$","$$"],["[[","]]"]],processEscapes:!0,processEnvironments:!0,skipTags:["script","noscript","style","textarea","pre"],TeX:{equationNumbers:{autoNumber:"AMS"},extensions:["AMSmath.js","AMSsymbols.js"]}}}),MathJax.Hub.Queue(function(){var e,t=MathJax.Hub.getAllJax();for(e=0;e<t.length;e+=1)t[e].SourceElement().parentNode.className+=" has-jax"})</script><style>code.has-jax{font:inherit;font-size:100%;background:inherit;border:inherit;color:#515151}</style></div><div class="row items-start justify-between"><div class="lg:col-5 mb-10 flex items-center lg:mb-0"><h5 class=mr-3>标签 :</h5><ul><li class=inline-block><a class="bg-theme-light hover:bg-primary dark:bg-darkmode-theme-light dark:hover:bg-darkmode-primary dark:hover:text-dark m-1 block rounded px-3 py-1 hover:text-white" href=/en/tags/%e6%89%a9%e6%95%a3%e6%a8%a1%e5%9e%8b/>扩散模型</a></li><li class=inline-block><a class="bg-theme-light hover:bg-primary dark:bg-darkmode-theme-light dark:hover:bg-darkmode-primary dark:hover:text-dark m-1 block rounded px-3 py-1 hover:text-white" href=/en/tags/%e5%9b%be%e5%83%8f%e7%94%9f%e6%88%90/>图像生成</a></li></ul></div></div></article></div></div></section></main><footer class="bg-theme-light dark:bg-darkmode-theme-light"><div class=container><div class="row items-center py-10"><div class="lg:col-3 mb-8 text-center lg:mb-0 lg:text-left"><a class="navbar-brand inline-block" href=/en/><img fetchpriority=high decoding=async class="img logo-light" width=160 height=32 src=/images/logo_hud3822dc52499c854acb9b180fed4f736_3648_320x0_resize_q80_h2_lanczos_3.webp alt=Hugoplate onerror='this.onerror=null,this.src="/images/logo_hud3822dc52499c854acb9b180fed4f736_3648_320x0_resize_lanczos_3.png"'>
+December 14, 2023</li></ul><div class="content mb-10"><h3 id=1-diffusion前向过程>1. Diffusion前向过程</h3><p>给定采样自数据集的真实图片$x_0 \sim q(x)$，并对其添加高斯噪声，共进行$T$步，称该过程为$q$过程，能够得到添加噪声后的图片分布$x_1,x_2,&mldr;,x_T$。</p><p>将加噪的过程看作一个马尔可夫过程，即$t$时刻的状态只与$t-1$时刻有关，设置超参数$\beta_t \in (0,1), t\in(1,T)$ ，本质上该超参数即为每一时刻下添加的高斯分布的方差。至此可以将该前向$q$过程写成以下形式，表示在$x_{t-1}$满足的分布前提下，$x_{t}$的方差为$\beta_t$，均值则受到了前一个状态的影响。
+$$
+q(x_t|x_{t-1})=\mathcal N(x_t;\sqrt{1-\beta_t}x_{t-1},\beta_t \mathbf{I})
+$$
+实际场景中，$\beta$是随着$t$的增大而递增的，那么当$t$很大时，$\beta_t$ 趋近于1，则$x_t$满足的分布接近于标准正态分布。【$\beta_t$这一超参数的存在本质是描述方差，但却在均值上乘上了$\sqrt{1-\beta_t}$，这能够使得均值在$t$很大的时候趋向于0，整个分布则为标准正态分布。】</p><p>由于以上过程看作一个马尔可夫过程，因此根据乘法公式可以写出以下表达式：
+$$
+q(x_{1:T}|x_0)=\prod_{t=1}^{T}q(x_t|x_{t-1})
+$$</p><h4 id=重参数技巧reparameterization-trick>重参数技巧（reparameterization trick）</h4><p>以上前向的$q$过程的表达形式是采样形式的，表示在某个分布中进行随机采样，这回导致过程有随机性，无法反向传播梯度，为了使该采样过程变得可导，使用冲参数技巧，引入一个固定的随机变量$\epsilon$实现。</p><p>例如需要进行以下采样：$z \sim \mathcal N (z;\mu_\theta,\sigma_{\theta}^{2}\mathbf{I})$，可以写成：$z=\mu_{\theta}+\sigma_{\theta}\odot\epsilon$，这样的话$z$依旧是一个随机变量，但对于$\mu_{\theta}$和$\sigma_{\theta}$等含有网络参数的参数，能够通过$z$进行梯度的求取，随机性完全来自于固定不变服从标注正态分布的$\epsilon $中了。</p><p>那么对于原先的$q$过程，可以使用重参数技巧重写$x_t$，即：
+$$
+x_t=\sqrt{1-\beta_t}x_{t-1}+\sqrt{\beta_t}z，z \sim \mathcal N (0,\mathbf{I})
+$$</p><h4 id=使用统一的方法表示x_t>使用统一的方法表示$x_t$</h4><p>由于上述扩散过程是一步步进行的，为了能够快速得到$x_t$，考虑使用$x_0$和$\beta$进行统一表示。</p><p>首先假设$\alpha_t=1-\beta_t$，并记$\overline{\alpha_t}=\prod_{i=1}^{T}\alpha_i$。</p><p>则对$x_t$有以下推导过程：</p><p>$$
+\begin{aligned} %aligned命令对齐，在对齐的地方用"&"
+x_t &=\sqrt{\alpha_t}x_{t-1}+\sqrt{1-\alpha_t}z_1 \\
+&=\sqrt{\alpha_t}(\sqrt{\alpha_{t-1}}x_{t-2}+\sqrt{1-\alpha_{t-1}}z_2)+\sqrt{1-\alpha_t}z_1 \\
+&=\sqrt{\alpha_t \alpha_{t-1}}x_{t-2}+\sqrt{\alpha_t(1-\alpha_{t-1})}z_2+\sqrt{1-\alpha_t}z_1 \\
+&=\sqrt{\alpha_t \alpha_{t-1}}x_{t-2}+\sqrt{1-\alpha_t \alpha_{t-1}}\overline{z_2} \\
+& &mldr; \\
+&=\sqrt{\overline{\alpha_t}}x_0+\sqrt{1-\overline{\alpha_t}}\ \overline{z_t}
+\end{aligned}
+$$</p><p>其中对于$\sqrt{\alpha_t(1-\alpha_{t-1})}z_2+\sqrt{1-\alpha_t}z_1=\sqrt{1-\alpha_t \alpha_{t-1}}\overline{z_2}$的推导过程，有以下分析：</p><p>$$
+\sqrt{\alpha_t(1-\alpha_{t-1})}z_2 \sim \mathcal N(0,\alpha_t(1-\alpha_{t-1})\mathbf{I}) \\
+\sqrt{1-\alpha_t}z_1 \sim \mathcal N (0,(1-\alpha_t)\mathbf{I}) \\
+\sqrt{\alpha_t(1-\alpha_{t-1})}z_2+\sqrt{1-\alpha_t}z_1 \sim \mathcal N(0,(1-\alpha_t \alpha_{t-1})\mathbf{I}) \\
+$$</p><p>对于得到的混合高斯分布$\mathcal N(0,(1-\alpha_t \alpha_{t-1})\mathbf{I})$，可以表达为$\sqrt{1-\alpha_t \alpha_{t-1}}\overline{z_2}$，对于$\overline{z_2}$依然服从的是标准高斯分布。</p><p>综上，对于$x_t$的表达式形式为$x_t=\sqrt{\overline{\alpha_t}}x_0+\sqrt{1-\overline{\alpha_t}}z$，采样形式为$q(x_t|x_0) \sim \mathcal N(x_t;\sqrt{\overline{\alpha_t}}x_0,(1-\overline{\alpha_t})\mathbf{I})$。可以看成原始图片与高斯噪声的加权求和结果。</p><h3 id=2-diffusion逆向推断>2. Diffusion逆向推断</h3><p>该过程可以看成前向$q$过程的逆过程，即去噪过程。目前在这里我们已知所有的前向过程$q(x_t|x_{t-1})$，想要从标准正态分布中逐步去噪得到最终的原图分布，即从$x_T$得到$x_0$，那么就需要知道$q(x_{t-1}|x_t)$。但这是十分困难的，因此考虑使用深度神经网络来对该分布进行预测，即训练一个模型使其能够做到$p_{\theta}(x_{t-1}|x_t)$。【即让神经网络去学习去噪的过程】</p><p>对于$p_{\theta}(x_{t-1}|x_{t})$，写成正态分布的表达形式，即为下式，可以看到我们需要使网络根据$x_t$和$t$学习得到分布的均值与方差。</p><p>$$
+p_{\theta}(x_{t-1}|x_t)=\mathcal N (x_{t-1};\mu_{\theta}(x_t,t),\Sigma_{\theta}(x_t,t))
+$$</p><p>虽然$q(x_{t-1}|x_t)$难以直接得到，但是可以引入已知的原图像分布$x_0$的先验知识，尝试得到$q(x_{t-1}|x_t,x_0)$，可以进行以下过程推导：</p><p>$$
+\begin{aligned}
+q(x_{t-1}|x_t,x_0)&=\frac{q(x_{t-1},x_{t},x_{0})}{q(x_t,x_0)} \\
+&=\frac{q(x_{t-1},x_t,x_0)}{q(x_{t-1},x_0)}\frac{q(x_{t-1},x_0)}{q(x_t,x_0)} \\
+&=q(x_t|x_{t-1},x_0)\frac{\frac{q(x_{t-1},x_0)}{q_{x_0}}}{\frac{q(x_t,x_0)}{q_{x_0}}}\\
+&=q(x_t|x_{t-1},x_0)\frac{q(x_{t-1}|x_0)}{q(x_t|x_0)}
+\end{aligned}
+$$</p><p>由此将加入先验知识的逆向分布转换为正向分布的表达式。</p><p>对于几个前向过程进行表达式说明：</p><p>$$
+q(x_{t-1}|x_0)=\sqrt{\overline{\alpha_{t-1}}}x_0+\sqrt{1-\overline{\alpha_{t-1}}}z \sim \mathcal N (\sqrt{\overline{\alpha_{t-1}}}x_0,1-\overline{\alpha_{t-1}}) \\
+q(x_{t}|x_0)=\sqrt{\overline{\alpha_{t}}}x_0+\sqrt{1-\overline{\alpha_{t}}}z \sim \mathcal N (\sqrt{\overline{\alpha_{t}}}x_0,1-\overline{\alpha_{t}})
+$$</p><p>由于$q$过程是马尔可夫过程，则有：</p><p>$$
+q(x_t|x_{t-1},x_0)=q(x_t|x_{t-1})=\sqrt{\alpha_{t}}x_{t-1}+\sqrt{1-\alpha_{t}}z \sim \mathcal N (\sqrt{\alpha_{t}}x_{t-1},1-\alpha_{t})
+$$</p><p>而对于高斯分布，我们能够使用概率密度函数的形式进行表达，即：$\mathcal N(\mu,\sigma^2)\propto exp(-\frac{(x-\mu)^2}{2\sigma^2})$，则考虑使用概率密度函数描述$q(x_{t-1}|x_0)、q(x_t|x_0)、q(x_t|x_{t-1},x_0)$，如下表达式所示：</p><p>$$
+q(x_{t-1}|x_0)\propto exp(-\frac{(x_{t-1}-\sqrt{\overline{\alpha_{t-1}}}x_0)^2}{2(1-\overline{\alpha_{t-1}})}) \\
+q(x_{t}|x_0)\propto exp(-\frac{(x_{t}-\sqrt{\overline{\alpha_{t}}}x_0)^2}{2(1-\overline{\alpha_{t}})}) \\
+q(x_t|x_{t-1},x_0)\propto exp(-\frac{(x_{t}-\sqrt{\alpha_{t}}x_{t-1})^2}{2(1-\alpha_{t})})
+$$</p><p>则最终可以表达$q(x_{t-1}|x_t,x_0)$，如下推导所示。由于$q(x_{t-1}|x_t,x_0)$是关于$x_{t-1}$的表达式，则需要进行同类相合并</p><p>$$
+\begin{aligned}
+q(x_{t-1}|x_t,x_0)
+&=q(x_t|x_{t-1},x_0)\frac{q(x_{t-1}|x_0)}{q(x_t|x_0)} \\
+&\propto exp(-\frac{(x_{t-1}-\sqrt{\overline{\alpha_{t-1}}}x_0)^2}{2(1-\overline{\alpha_{t-1}})}) +
+exp(-\frac{(x_{t}-\sqrt{\alpha_{t}}x_{t-1})^2}{2(1-\alpha_{t})}) -
+exp(-\frac{(x_{t}-\sqrt{\overline{\alpha_{t}}}x_0)^2}{2(1-\overline{\alpha_{t}})}) \\
+&=exp(-\frac{1}{2}(\frac{(x_{t-1}-\sqrt{\overline{\alpha_{t-1}}}x_0)^2}{1-\overline{\alpha_{t-1}}}+\frac{(x_{t}-\sqrt{\alpha_{t}}x_{t-1})^2}{1-\alpha_{t}}-\frac{(x_{t}-\sqrt{\overline{\alpha_{t}}}x_0)^2}{1-\overline{\alpha_{t}}})) \\
+&=exp(-\frac{1}{2}((\frac{\alpha_t}{1-\alpha_t}+\frac{1}{1-\overline{\alpha_{t-1}}})x_{t-1}^2-(\frac{2\sqrt{\alpha_t}}{1-\alpha_t}x_t+\frac{2\sqrt{\overline{\alpha_{t-1}}}}{1-\overline{\alpha_{t-1}}}x_0)x_{t-1}+C(x_t,x_0)))
+\end{aligned}
+$$</p><p>其中$C(x_t,x_0)$不含$x_{t-1}$。</p><p>考虑到对于概率密度的表达式，可以进行展开操作，即$\mathcal N(\mu,\sigma^2)\propto exp(-\frac{(x-\mu)^2}{2\sigma^2})=exp(-\frac{1}{2}(\frac{1}{\sigma^2}x^2-\frac{2\mu}{\sigma^2}x+\frac{\mu^2}{\sigma^2}))$，与$q(x_{t-1}|x_t,x_0)$的表达式一一对应可知。</p><p>$$
+\frac{1}{\sigma^2}=\frac{\alpha_t}{1-\alpha_t}+\frac{1}{1-\overline{\alpha_{t-1}}} \\
+\sigma^2 =\frac{(1-\alpha_t)(1-\overline{\alpha_{t-1}})}{\alpha_t(1-\overline{\alpha_{t-1}})+(1-\alpha_t)}=\frac{\beta_t(1-\overline{\alpha_{t-1}})}{\alpha_t(1-\overline{\alpha_{t-1}})+\beta_t} \\
+=\frac{1-\overline{\alpha_{t-1}}}{1-\overline{\alpha_t}}\beta_t
+$$</p><p>对于均值，有求得表达式：</p><p>$$
+\frac{2\mu}{\sigma^2}=\frac{2\sqrt{\alpha_t}}{1-\alpha_t}x_t+\frac{2\sqrt{\overline{\alpha_{t-1}}}}{-\overline{\alpha_{t-1}}}x_0 \\
+\mu=\frac{\sqrt{\alpha_t}(1-\overline{\alpha_{t-1}})}{1-\overline{\alpha_{t}}}x_t+\frac{\sqrt{\overline{\alpha_{t-1}}}\beta_t}{1-\overline{\alpha_t}}x_0
+$$</p><p>至此，我们在加入$x_0$的先验知识后，能够描述出分布$q(x_{t-1}|x_t,x_0)$的均值和方差的表达式，即</p><p>$$
+\mu=\frac{\sqrt{\alpha_t}(1-\overline{\alpha_{t-1}})}{1-\overline{\alpha_{t}}}x_t+\frac{\sqrt{\overline{\alpha_{t-1}}}\beta_t}{1-\overline{\alpha_t}}x_0 \\
+\sigma^2=\frac{1-\overline{\alpha_{t-1}}}{1-\overline{\alpha_t}}\beta_t
+$$</p><p>但实际上我们需要通过神经网络来训练出一个分布$p_{\theta}(x_{t-1}|x_t)$，该分布的均值和方差均是含参数的，即上述的$\mu_{\theta}(x_t,t)$与$\Sigma_{\theta}(x_t,t)$。我们考虑使用$q(x_{t-1}|x_t,x_0)$来近似估计$p_{\theta}(x_{t-1}|x_t)$，这显然是可行的，因为$x_t$可以由$x_0$来表示，同理也可以使用$x_t$来表示$x_0$。综上可得以下关于均值和方差的表达式：</p><p>$$
+\mu_{\theta}(x_t,t)=\frac{\sqrt{\alpha_t}(1-\overline{\alpha_{t-1}})}{1-\overline{\alpha_{t}}}x_t+\frac{\sqrt{\overline{\alpha_{t-1}}}\beta_t}{1-\overline{\alpha_t}}x_0 \\
+\Sigma_{\theta}(x_t,t)=\frac{1-\overline{\alpha_{t-1}}}{1-\overline{\alpha_t}}\beta_t
+$$</p><p>对于其中出现的先验知识$x_0$，考虑使用$x_t$来表达，即有：
+$$
+x_0=\frac{x_t-\sqrt{1-\overline{\alpha_t}}z}{\sqrt{\overline{\alpha_t}}}
+$$
+代入均值$\mu_{\theta}(x_t,t)$的表达式，有以下推导过程：</p><p>$$
+\begin{aligned}
+\mu_{\theta}(x_t,t)&=\frac{\sqrt{\alpha_t}(1-\overline{\alpha_{t-1}})}{1-\overline{\alpha_{t}}}x_t+\frac{\sqrt{\overline{\alpha_{t-1}}}\beta_t}{1-\overline{\alpha_t}}x_0 \\
+&=\frac{\sqrt{\alpha_t}(1-\overline{\alpha_{t-1}})}{1-\overline{\alpha_{t}}}x_t+\frac{\sqrt{\overline{\alpha_{t-1}}}\beta_t}{1-\overline{\alpha_t}}\frac{x_t-\sqrt{1-\overline{\alpha_t}}z}{\sqrt{\overline{\alpha_t}}} \\
+&=\frac{1}{\sqrt{\alpha_t}}(x_t-\frac{1-\alpha_t}{\sqrt{1-\overline{\alpha_t}}}z)
+\end{aligned}
+$$</p><p>观察表达式可以发现，$\alpha_t$、$x_t$、$\overline{\alpha_t}$均为已知量，模型需要确定$\mu_{\theta}(x_t,t)$，本质上是个噪声预测的过程，即对于上式中的$z$，需要交给神经网络去预测，记为$z_{\theta}(x_t,t)$。</p><p>综上，反向去噪过程可以概括为：</p><ol><li>根据$x_t$和$t$预测高斯噪声$z_{\theta}(x_t,t)$，则能够得到模型预测的去噪后的分布均值$\mu_{\theta}(x_t,t)$，其实就是去噪后的图像。</li><li>得到方差$\Sigma_{\theta}(x_t,t)$，在DDPM中方差是untrained的，即$\Sigma_{\theta}(x_t,t)=\frac{1-\overline{\alpha_{t-1}}}{1-\overline{\alpha_t}}\beta_t$，但对于方差也可以进行训练估计。</li><li>$p_{\theta}(x_{t-1}|x_t)=\mathcal N (x_{t-1};\mu_{\theta}(x_t,t),\Sigma_{\theta}(x_t,t))$进行去噪，获得$x_{t-1}$，通过重参数技巧。</li></ol><h3 id=3-训练方式与策略>3. 训练方式与策略</h3><h4 id=常规的训练流程>常规的训练流程</h4><ol><li>从数据集中采样得到$x_0$，$x_0 \sim q(x)$，并在$1&mldr;T$中随机采样一个 $t$。</li><li>从标准高斯分布中采样一个噪声$z\sim \mathcal N (0,\mathbf{I})$。</li><li>根据重参数技巧得到$x_t=\sqrt{\overline{\alpha_t}}x_0+\sqrt{1-\overline{\alpha_t}}z$。</li><li>训练UNet，输入$x_t$和$t$，模型输出$z_{\theta}(x_t,t)$，将$z_{\theta}(x_t,t)$和$z$做Loss。</li></ol><h4 id=推理流程>推理流程</h4><ol><li>从标准高斯分布中采样得到一个噪声$x_t \sim \mathcal N(0,\mathbf{I})$。</li><li>从$T$到1遍历变量$t$，如果$t==1$则$z=0$，否则采样噪声$z\sim\mathcal N(0,\mathbf{I})$。</li><li>UNet推理得到$z_\theta(x_t,t)$，进行去噪$x_{t-1}=\frac{1}{\sqrt{\overline{\alpha_t}}}(x_t-\frac{1-\alpha_t}{\sqrt{1-\overline{\alpha_t}}}z_{\theta}(x_t,t))+\Sigma_{\theta}(x_t,t)z$。</li><li>得到$x_0$。</li></ol><h3 id=4-diffusion的应用拓展>4. Diffusion的应用拓展</h3><h4 id=diffusion做分割segdiff>Diffusion做分割（SegDiff）</h4><p><img alt=image-1 src=/images/diffusion/image-1.png></p><p>要点：将待分割图像作为condition image进行特征的提取，在进入UNet之前进行特征的融合，扩散生成的为mask。</p><p>训练$\mu_{\theta}(x_t,t)$时，需要加入图像的特征，即$\mu_{\theta}(x_t,t,I)$，推理时同理。</p><script type=text/javascript async src="https://cdn.bootcss.com/mathjax/2.7.3/MathJax.js?config=TeX-AMS-MML_HTMLorMML">MathJax.Hub.Config({tex2jax:{inlineMath:[["$","$"],["\\(","\\)"]],displayMath:[["$$","$$"],["[[","]]"]],processEscapes:!0,processEnvironments:!0,skipTags:["script","noscript","style","textarea","pre"],TeX:{equationNumbers:{autoNumber:"AMS"},extensions:["AMSmath.js","AMSsymbols.js"]}}}),MathJax.Hub.Queue(function(){var e,t=MathJax.Hub.getAllJax();for(e=0;e<t.length;e+=1)t[e].SourceElement().parentNode.className+=" has-jax"})</script><style>code.has-jax{font:inherit;font-size:100%;background:inherit;border:inherit;color:#515151}</style></div><div class="row items-start justify-between"><div class="lg:col-5 mb-10 flex items-center lg:mb-0"><h5 class=mr-3>标签 :</h5><ul><li class=inline-block><a class="bg-theme-light hover:bg-primary dark:bg-darkmode-theme-light dark:hover:bg-darkmode-primary dark:hover:text-dark m-1 block rounded px-3 py-1 hover:text-white" href=/en/tags/%e6%89%a9%e6%95%a3%e6%a8%a1%e5%9e%8b/>扩散模型</a></li><li class=inline-block><a class="bg-theme-light hover:bg-primary dark:bg-darkmode-theme-light dark:hover:bg-darkmode-primary dark:hover:text-dark m-1 block rounded px-3 py-1 hover:text-white" href=/en/tags/%e5%9b%be%e5%83%8f%e7%94%9f%e6%88%90/>图像生成</a></li></ul></div></div></article></div></div></section></main><footer class="bg-theme-light dark:bg-darkmode-theme-light"><div class=container><div class="row items-center py-10"><div class="lg:col-3 mb-8 text-center lg:mb-0 lg:text-left"><a class="navbar-brand inline-block" href=/en/><img fetchpriority=high decoding=async class="img logo-light" width=160 height=32 src=/images/logo_hud3822dc52499c854acb9b180fed4f736_3648_320x0_resize_q80_h2_lanczos_3.webp alt=Hugoplate onerror='this.onerror=null,this.src="/images/logo_hud3822dc52499c854acb9b180fed4f736_3648_320x0_resize_lanczos_3.png"'>
 <img fetchpriority=high decoding=async class="img logo-dark" width=160 height=32 src=/images/logo-darkmode_hu95dd250582672ebe0c063cf60eed448f_3090_320x0_resize_q80_h2_lanczos_3.webp alt=Hugoplate onerror='this.onerror=null,this.src="/images/logo-darkmode_hu95dd250582672ebe0c063cf60eed448f_3090_320x0_resize_lanczos_3.png"'></a></div><div class="lg:col-6 mb-8 text-center lg:mb-0"><ul><li class="m-3 inline-block"><a href=/en/about/>个人信息</a></li><li class="m-3 inline-block"><a href=/en/blog/>学习笔记</a></li><li class="m-3 inline-block"><a href=/en/privacy-policy/>相关说明</a></li></ul></div><div class="lg:col-3 mb-8 text-center lg:mb-0 lg:mt-0 lg:text-right"><ul class=social-icons><li><a target=_blank aria-label=github rel="nofollow noopener" href=https://www.github.com/COOOIKX><i class="fab fa-github"></i></a></li><li><a target=_blank aria-label=csdn rel="nofollow noopener" href="https://blog.csdn.net/m0_59701064?spm=1000.2115.3001.5343"><i class="fas fa-home-lg"></i></a></li></ul></div></div></div><div class="border-border dark:border-darkmode-border border-t py-7"><div class="text-light dark:text-darkmode-light container text-center"><p>HeDesigned & Developed by <a href=https://zeon.studio target=_blank>Zeon Studio</a></p></div></div></footer><script crossorigin=anonymous integrity="sha256-YQerunHGeT7hXzxweSqFUXgOHHxFceSjmMy/kmnAHWU=" src=/js/script.min.6107abba71c6793ee15f3c70792a8551780e1c7c4571e4a398ccbf9269c01d65.js></script><script defer async crossorigin=anonymous integrity="sha256-w+aS42D2+B+Jix+joZ7pAua1vbu/pRK/IhoP55b8n3w=" src=/js/script-lazy.min.c3e692e360f6f81f898b1fa3a19ee902e6b5bdbbbfa512bf221a0fe796fc9f7c.js></script><script>"serviceWorker"in navigator&&navigator.serviceWorker.register("/service-worker.js")</script></body></html>
