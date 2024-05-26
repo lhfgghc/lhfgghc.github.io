@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>NLP on Info of LHF</title>
+    <link>http://localhost:1313/en/tags/nlp/</link>
+    <description>Recent content in NLP on Info of LHF</description>
+    <generator>Hugo -- gohugo.io</generator>
+    <language>en-us</language>
+    <atom:link href="http://localhost:1313/en/tags/nlp/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>【学习笔记】BERT的基本结构与原理</title>
+      <link>http://localhost:1313/en/blog/bert/</link>
+      <pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
+      <guid>http://localhost:1313/en/blog/bert/</guid>
+      <description>【学习笔记】Tran</description>
+    </item>
+  </channel>
+</rss>
